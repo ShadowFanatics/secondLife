@@ -1,0 +1,96 @@
+key kQuery;
+integer iLine = 0;
+key notecard_key = NULL_KEY;
+string notecard_name = "config";
+string class = "";
+string word = "";
+integer listenHandle;
+integer myState = 0;
+key stageMasterID;
+readData() {
+
+    key nc_key = llGetInventoryKey(notecard_name);
+    if (nc_key == notecard_key)
+    {
+        // Some other inventory item changed, not the configuration notecard.
+        return; // Skip reading the notecard in this case.
+    }
+    // Remember the new notecard key from now on.
+    notecard_key = nc_key;
+    kQuery = llGetNotecardLine(notecard_name, 0);    
+}
+config_init()
+{
+    readData();
+}
+
+default
+{
+    state_entry()
+    {
+        // Read the notecard once at startup.
+        config_init();
+        listenHandle = llListen(0, "", "", "");
+    }
+ 
+    changed(integer change)
+    {
+        if (change & CHANGED_INVENTORY)         
+        {
+            // Read the notecard when the inventory has changed.
+            config_init();
+        }
+    }
+ 
+    touch_start(integer total_number)
+    {
+
+        if ( myState == 1 ) {
+            llSay(0, "我被點了");
+//            llInstantMessage( stageMasterID, "clicked");
+            myState = 0;
+        }
+        else {
+            llSay(0, word);
+        }
+    }
+    dataserver(key query_id, string data) 
+    {
+        if (query_id == kQuery) 
+        {
+            // this is a line of our notecard
+            if (data == EOF) 
+            {
+                llOwnerSay("Finished reading configuration.");
+            } 
+            else 
+            {
+                // TODO: handle notecard line here.  For not just inform the owner.
+                llOwnerSay("Read notecard line: " + data);
+                //splite
+                list temp = llParseString2List(data, ["="], []);
+                if (llList2String(temp, 0) == "word") {
+                    word = llList2String(temp, 1);
+                }
+                else if (llList2String(temp, 0) == "class") {
+                    class = llList2String(temp, 1);
+                }
+                // increment line count
+                ++iLine;
+                //request next line of notecard.
+                kQuery = llGetNotecardLine(notecard_name, iLine);
+            }
+        }
+    }
+    listen(integer channel, string say_name, key id, string message)
+    {
+//      we filtered to only listen on channel 0
+//      to the owner's chat in the llListen call above
+        if (message == "stage1 start" && say_name == "stage1") {
+//            llSay(0, "hi, " + say_name);
+            stageMasterID = id;
+            myState = 1;
+        }
+//      stop listening until script is reset
+    }
+}

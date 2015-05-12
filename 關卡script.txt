@@ -1,0 +1,96 @@
+key kQuery;
+integer iLine = 0;
+key notecard_key = NULL_KEY;
+string notecard_name = "question";
+integer listenHandle;
+integer myState = 0;
+integer answerNumber = 0;
+list answerList = [];
+integer userNumber = 0;
+string question = "";
+readData() {
+
+    key nc_key = llGetInventoryKey(notecard_name);
+    if (nc_key == notecard_key)
+    {
+        // Some other inventory item changed, not the configuration notecard.
+        return; // Skip reading the notecard in this case.
+    }
+    // Remember the new notecard key from now on.
+    notecard_key = nc_key;
+    kQuery = llGetNotecardLine(notecard_name, 0);    
+}
+config_init()
+{
+    readData();
+}
+default
+{
+    state_entry()
+    {
+        llSay(0, "hello");
+        config_init();
+    }
+    changed(integer change)
+    {
+        if (change & CHANGED_INVENTORY)         
+        {
+            // Read the notecard when the inventory has changed.
+            config_init();
+        }
+    }
+    touch_start(integer total_number)
+    {
+        llSay(0, "stage1 start");
+        llSay(0, question);
+        myState = 1;
+        listenHandle = llListen(0, "", "", "");
+    }
+    listen(integer channel, string name, key id, string message)
+    {
+//      we filtered to only listen on channel 0
+//      to the owner's chat in the llListen call above
+        integer i;
+        for ( i = 0; i < llGetListLength(answerList); i++ ) {
+            if (name == llList2String(answerList, i) && message == "我被點了" ) {
+                llSay(0, name + "是正確答案~太棒了!");
+                userNumber++;
+            }
+        }
+        if ( userNumber == answerNumber ) {
+            myState = 0;
+            llSay(0, "恭喜你過關了~");
+            llListenRemove(listenHandle);
+        }
+        
+//      stop listening until script is reset
+    }
+    dataserver(key query_id, string data) 
+    {
+        if (query_id == kQuery) 
+        {
+            // this is a line of our notecard
+            if (data == EOF) 
+            {
+                llOwnerSay("Finished reading configuration.");
+            } 
+            else 
+            {
+                // TODO: handle notecard line here.  For not just inform the owner.
+                llOwnerSay("Read notecard line: " + data);
+                //splite
+                list temp = llParseString2List(data, [";"], []);
+                question = llList2String(temp, 0);
+                answerNumber = llList2Integer(temp, 1);
+                integer i;
+                for ( i = 2; i < llGetListLength(temp); i++ ) {
+                    answerList += [llList2String(temp, i)];
+                }
+                // increment line count
+                ++iLine;
+                //request next line of notecard.
+                kQuery = llGetNotecardLine(notecard_name, iLine);
+            }
+        }
+    }
+}

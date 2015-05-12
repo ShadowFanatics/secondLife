@@ -1,0 +1,2 @@
+class=people
+word=我最愛喝咖啡了
